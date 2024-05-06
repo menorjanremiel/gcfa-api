@@ -30,11 +30,33 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 case 'login':
                 echo json_encode($auth->login($d));
                 break;
+
+                case 'logout': 
+                echo json_encode($auth->logout($d));
+                break;
                 // get
+                case 'patient':
+                if ($auth->checkValidSignature($d->id, $d->token)) {
+                echo json_encode($get->getPatient($d));
+                }else{
+                    echo errMsg(401);
+                }
+                break;
                 case 'admin':
-                echo json_encode($get->getAdmin($d));
+                if ($auth->checkValidSignature($d->id, $d->token)) {
+                echo json_encode($get->getAdmin($d->payload));
+                }else{
+                    echo errMsg(401);
+                }
                 break;
                 // add
+                case 'addSession':
+                echo json_encode($post->addSession($d));
+                break;
+
+                case 'addPatient':
+                echo json_encode($auth->addPatient($d));
+                break;
                 // change password
                 // update 
                 // delete

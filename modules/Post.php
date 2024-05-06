@@ -184,4 +184,23 @@
             }
             return $this->gm->response($payload, $remarks, $message, $code);
         }
+
+
+        
+	public function addSession($dt)
+	{
+		$code = 0;
+		$payload = [];
+		$remarks = "failed";
+		$message = "Unable to add data";
+        
+		$data = array('docid' => $dt->docid, 'title' => $dt->title, 'scheduledate' => $dt->scheduledate, 'scheduletime' => $dt->scheduletime, 'nop' => $dt->nop);
+		$res = $this->gm->insert('schedule', $data);
+		if ($res['code'] == 200) {
+			$code = 200;
+			$remarks = "success";
+			$message = "Session added to database";
+		}
+		return $this->gm->response($payload, $remarks, $message, $code);
+	}
     }

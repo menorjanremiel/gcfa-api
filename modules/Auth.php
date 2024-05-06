@@ -5,19 +5,13 @@ class Auth
 	protected $pdo;
 	protected $get;
 
-	public function __construct(\PDO $pdo)
-	{
+	public function __construct(\PDO $pdo){
 		$this->gm = new GlobalMethods($pdo);
 		$this->get = new Get($pdo);
 		$this->pdo = $pdo;
 	}
-
-
-
-	// JWT Methods
-
-	protected function generate_header()
-	{
+// JWT Methods
+	protected function generate_header(){
 		$header = [
 			"typ" => 'PWA',
 			"alg" => 'HS256',
@@ -27,8 +21,7 @@ class Auth
 		return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(json_encode($header)));
 	}
 
-	protected function generate_payload($id, $email)
-	{
+	protected function generate_payload($id, $email){
 		$payload = [
 			'uid' => $id,
 			'un' => $email,
@@ -40,8 +33,7 @@ class Auth
 		return str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(json_encode($payload)));
 	}
 
-	protected function generate_token($id, $email)
-	{
+	protected function generate_token($id, $email){
 		$header = $this->generate_header();
 		$payload = $this->generate_payload($id, $email);
 		$hashSignature = hash_hmac('sha256', $header . "." . $payload, "www.gordoncollege.edu.ph");
@@ -49,32 +41,26 @@ class Auth
 
 		return $header . "." . $payload . "." . $signature;
 	}
-
-	// User Authorization Methods
-
-	public function encrypt_password($password)
-	{
+// User Authorization Methods
+	public function encrypt_password($password){
 		$hashFormat = "$2y$10$";
 		$saltLength = 22;
 		$salt = $this->generate_salt($saltLength);
 		return crypt($password, $hashFormat . $salt);
 	}
 
-	public function decrypt_password($password)
-	{
+	public function decrypt_password($password){
 		return base64_decode($password);
 	}
 
-	public function generate_salt($len)
-	{
+	public function generate_salt($len){
 		$urs = md5(uniqid(mt_rand(), true));
 		$b64String = base64_encode($urs);
 		$mb64String = str_replace('+', '.', $b64String);
 		return substr($mb64String, 0, $len);
 	}
 
-	public function password_check($password, $existingHash)
-	{
+	public function password_check($password, $existingHash){
 		$hash = crypt($password, $existingHash);
 		if ($hash === $existingHash) {
 			return true;
@@ -82,14 +68,12 @@ class Auth
 		return false;
 	}
 
-	protected function get_payload($token)
-	{
+	protected function get_payload($token){
 		$token = explode('.', $token);
 		return $token[1];
 	}
 
-	protected function is_authorized($token)
-	{
+	protected function is_authorized($token){
 		$token = explode('.', $token);
 		$payload = json_decode(base64_decode($token[1]));
 		$exp = $payload->exp;
@@ -100,48 +84,78 @@ class Auth
 		return false;
 	}
 
-	protected function check_auth($token)
-	{
+	protected function check_auth($token){
 		if ($this->is_authorized($token)) {
 			return $this->get_payload($token);
 		}
 		return false;
 	}
 
-	protected function create_folder($id)
-	{
-		$file_path = 'request/img/' . $id;
-
-		if (!file_exists($file_path)) {
-			mkdir($file_path, 0777, true);
-		}
+	protected function getTokenSignature($d) {
+			$token = explode('.', $d);
+			return $token[2];
 	}
 
-	public function base64_to_jpeg($d)
-	{
-		$this->create_folder($d->id);
-		$filename_path = "request/img/" . $d->id . "/2x2.jpg";
-		$data = explode(',', $d->img);
-		$decoded = base64_decode($data[1]);
-		file_put_contents($filename_path, $decoded);
+	public function checkValidSignature($param1, $param2) {
+			$sql = "SELECT * FROM token_tbl WHERE userid_fld = ?";
+			$prep = $this->pdo->prepare($sql);
+			$prep->execute([
+				$param1,
+			]);
 
-		return $this->gm->response($filename_path, 'success', 'Image uploaded successfully', 200);
+			if ($res = $prep->fetchAll()) {
+				$userToken = explode('.', $param2);
+
+				return $this->getTokenSignature($res[0]['tokenlog_fld']) == $userToken[2];
+			}
+			return false;
 	}
+		
+	public function check_token_log($id, $token){
+			$sql = "SELECT * FROM token_tbl WHERE userid_fld = $id";
+			$res = $this->gm->executeQuery($sql);
 
-	public function delete_img($d)
-	{
-		$filename_path = "request/img/" . $d->id . "/2x2.jpg";
-		if (file_exists($filename_path)) {
-			unlink($filename_path);
-		}
+			switch($res['code']) {
+				case 200:
+					if (strlen($res['data'][0]['tokenlog_fld']) > 0) {
+						return true;
+					} else {
+						$this->gm->update('token_tbl', ['tokenlog_fld'=>$token], "userid_fld = $id");
+					}
+				break;
 
-		return $this->gm->response($filename_path, 'success', 'Image deleted successfully', 200);
+				case 404:
+					$payload = [
+						"userid_fld" => $id,
+						"tokenlog_fld" => $token,
+					];
+					
+					$this->gm->insert("token_tbl", $payload);
+				break;
+
+				default:
+					return false;
+				break;
+			}
+	}	
+
+	public function logout($d) {
+		$payload = [];	
+		$code = 200;
+		$remarks = "failed";
+		$message = "Logout failed";
+
+		$res = $this->gm->delete('token_tbl', "userid_fld =  $d->id");
+		
+			if ($res['code'] == 200) {
+				$code = 200;
+				$remarks = "success";
+				$message = "Logout successfully";
+			}
+			return $this->gm->response($payload, $remarks, $message, $code);
 	}
-
-	// Login
-
-	public function login($data)
-	{
+// Login
+	public function login($data){
 		$payload = [];
 		$code = 0;
 		$remarks = "failed";
@@ -153,12 +167,10 @@ class Auth
 		if ($res['code'] == 200) {
 			$usertype = $res['data'][0]['usertype'];
 			if ($usertype=='d') {
-				$email = $res['data'][0]['email'];
-				// $token = $this->generate_token($email);
-				// $this->gm->update('admin_tbl', ['admintoken_fld' => $token], $id);
 				$faculty = "SELECT * FROM doctor WHERE docemail = '$data->email'";
 				$fdt = $this->gm->executeQuery($faculty);
 				$password =$fdt['data'][0]['docpassword'];
+				
 				if ($password == $data->password) {
 					$payload = $res['data'][0]['usertype'];
 					$code = 200;					
@@ -167,9 +179,6 @@ class Auth
 				}
 			}
 			if ($usertype=='a') {
-				$email = $res['data'][0]['email'];
-				// $token = $this->generate_token($email);
-				// $this->gm->update('admin_tbl', ['admintoken_fld' => $token], $id);
 				$admin = "SELECT * FROM admin WHERE aemail = '$data->email'";
 				$adt = $this->gm->executeQuery($admin);
 				$password =$adt['data'][0]['apassword'];
@@ -181,63 +190,41 @@ class Auth
 				}
 			}
 			if ($usertype=='p') {
-				$email = $res['data'][0]['email'];
-				// $token = $this->generate_token($email);
-				// $this->gm->update('admin_tbl', ['admintoken_fld' => $token], $id);
-				$patient = "SELECT * FROM patient WHERE pemail = '$data->email'";
-				$pdt = $this->gm->executeQuery($patient);
-				$password =$pdt['data'][0]['ppassword'];
-				if ($password == $data->password) {
-					$payload = $res['data'][0]['usertype'];
-					$code = 200;					
-					$remarks = "success";
-					$message = "Login success.";
+				$sql = "SELECT * FROM patient WHERE pemail = ? LIMIT 1";
+				$stmt = $this->pdo->prepare($sql);
+				$stmt->execute([$data->email]);
+				$user = $stmt->fetch();
+				if ($this->password_check($data->password, $user['ppassword'])) {
+					$id = $user['pid'];
+					$email = $user['pemail'];
+					$role = 'p';
+					$token = $this->generate_token($id, $email);	
+						if (!$this->check_token_log($id, $token)) {
+							$payload = ["id" => $id, "role" => $role, "token" => $token];
+							// $payload = $data;
+							$remarks = "success"; 
+							$message = "Login success.";
+						} else {
+							$remarks = "failed";
+							$message = "Authorization failed. You already logged in with another device.";
+						}
 				}
 			}
 		}
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
 
-	public function loginStudent($data)
-	{
-		$payload = [];
-		$code = 0;
-		$remarks = "failed";
-		$message = "Login failed. Check you account credential.";
-
-		$sql = "SELECT * FROM student_tbl WHERE studno_fld = $data->studno_fld LIMIT 1";
-		$res = $this->gm->executeQuery($sql);
-
-		if ($res['code'] == 200) {
-			if ($this->password_check($data->studpass_fld, $res['data'][0]['studpass_fld'])) {
-				$id = $res['data'][0]['studid_fld'];
-				$email = $res['data'][0]['studno_fld'];
-				$token = $this->generate_token($id, $email);
-
-				$this->gm->update('student_tbl', ['studtoken_fld' => $token], $id);
-
-				if ($this->check_auth($token)) {
-					$payload = $this->check_auth($token);
-					$code = 200;
-					$remarks = "success";
-					$message = "Login success.";
-				}
-			}
-		}
-		return $this->gm->response($payload, $remarks, $message, $code);
-	}
-
-	// Add
-
-	public function addStudent($dt)
-	{
+  
+// Add
+	public function addPatient($dt){
 		$code = 0;
 		$payload = [];
 		$remarks = "failed";
 		$message = "Unable to add data";
-		$data = array('studno_fld' => $dt->studno_fld, 'studpass_fld' => $this->encrypt_password($dt->studpass_fld), 'studfname_fld' => $dt->studfname_fld, 'studmname_fld' => $dt->studmname_fld, 'studlname_fld' => $dt->studlname_fld, "studextension_fld" => $dt->studextension_fld, "studdept_fld" => $dt->studdept_fld, "studprog_fld" => $dt->studprog_fld);
-
-		$res = $this->gm->insert('student_tbl', $data);
+		$data = array('pemail' => $dt->pemail,'pname'=> $dt->pname, 'ppassword' => $this->encrypt_password($dt->ppassword), 'paddress' => $dt->paddress, 'pnic' => $dt->pnic, 'pdob' => $dt->pdob, "ptel" => $dt->ptel);
+		$usertype = 'p';
+		$res = $this->gm->insert('patient', $data);
+		$res = $this->gm->insert('webuser', array('email' => $dt->pemail, 'usertype' => $usertype));
 
 		if ($res['code'] == 200) {
 			$code = 200;
@@ -247,8 +234,7 @@ class Auth
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
 
-	public function addAdmin($dt)
-	{
+	public function addAdmin($dt){
 		$code = 0;
 		$payload = null;
 		$remarks = "failed";
@@ -265,73 +251,31 @@ class Auth
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
 
-	public function addEnvironment($dt)
-	{
-		$code = 0;
-		$payload = null;
-		$remarks = "failed";
-		$message = "Unable to Add Environment";
-
-		$res = $this->gm->insert('env_tbl', $dt);
-
-		if ($res['code'] == 200) {
-			$payload = $dt;
-			$code = 200;
-			$remarks = "success";
-			$message = "Voting Environment successfully added";
+//others
+	public function delete_img($d){
+		$filename_path = "request/img/" . $d->id . "/2x2.jpg";
+		if (file_exists($filename_path)) {
+			unlink($filename_path);
 		}
-		return $this->gm->response($payload, $remarks, $message, $code);
+		return $this->gm->response($filename_path, 'success', 'Image deleted successfully', 200);
 	}
 
-	public function addPosition($dt)
-	{
-		$code = 0;
-		$payload = null;
-		$remarks = "failed";
-		$message = "Unable to Add Position";
+	protected function create_folder($id){
+		$file_path = 'request/img/' . $id;
 
-		$res = $this->gm->insert('position_tbl', $dt);
-
-		if ($res['code'] == 200) {
-			$code = 200;
-			$remarks = "success";
-			$message = "Position successfully added";
+		if (!file_exists($file_path)) {
+			mkdir($file_path, 0777, true);
 		}
-		return $this->gm->response($payload, $remarks, $message, $code);
 	}
 
-	public function addCandidate($dt)
-	{
-		$code = 0;
-		$payload = null;
-		$remarks = "failed";
-		$message = "Unable to Add Candidate";
+	public function base64_to_jpeg($d){
+		$this->create_folder($d->id);
+		$filename_path = "request/img/" . $d->id . "/2x2.jpg";
+		$data = explode(',', $d->img);
+		$decoded = base64_decode($data[1]);
+		file_put_contents($filename_path, $decoded);
 
-		$res = $this->gm->insert('candidate_tbl', $dt);
-
-		if ($res['code'] == 200) {
-			$payload = $res;
-			$code = 200;
-			$remarks = "success";
-			$message = "Candidate successfully added";
-		}
-		return $this->gm->response($payload, $remarks, $message, $code);
+		return $this->gm->response($filename_path, 'success', 'Image uploaded successfully', 200);
 	}
 
-	public function AddVote($dt)
-	{
-		$code = 0;
-		$payload = null;
-		$remarks = "failed";
-		$message = "Unable to Add Vote";
-
-		$res = $this->gm->insert('vote_candidate_tbl', $dt);
-
-		if ($res['code'] == 200) {
-			$code = 200;
-			$remarks = "success";
-			$message = "Vote successfully added";
-		}
-		return $this->gm->response($payload, $remarks, $message, $code);
-	}
 }

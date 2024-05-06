@@ -64,7 +64,6 @@
 			return array("code"=>$code, "errmsg"=>$errmsg);
 		}
 
-
 		public function update($table, $data, $conditionStringPassed){
 			$fields=[]; $values=[];
 			$setStr = "";
