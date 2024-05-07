@@ -28,35 +28,59 @@ switch ($_SERVER['REQUEST_METHOD']) {
         switch ($req[0]) {
                 // login 
                 case 'login':
-                echo json_encode($auth->login($d));
+                    echo json_encode($auth->login($d));
                 break;
 
                 case 'logout': 
-                echo json_encode($auth->logout($d));
+                    echo json_encode($auth->logout($d));
                 break;
+
                 // get
                 case 'patient':
-                if ($auth->checkValidSignature($d->id, $d->token)) {
-                echo json_encode($get->getPatient($d));
-                }else{
-                    echo errMsg(401);
-                }
+                    if ($auth->checkValidSignature($d->id, $d->token)) {
+                        echo json_encode($get->getPatient($d));
+                    }else{
+                        echo errMsg(401);
+                    }
                 break;
-                case 'admin':
-                if ($auth->checkValidSignature($d->id, $d->token)) {
-                echo json_encode($get->getAdmin($d->payload));
-                }else{
-                    echo errMsg(401);
-                }
+
+                case 'getAllDoctor':
+                    if ($auth->checkValidSignature($d->id, $d->token)) {
+                        echo json_encode($get->getAllDoctor($d));
+                    }else{
+                        echo errMsg(401);
+                    }
                 break;
+
+                case 'getSpecialties':
+                    echo json_encode($get->getSpecialties($d));
+                break;
+                case 'getAllPatients':
+                    if ($auth->checkValidSignature($d->id, $d->token)) {
+                        echo json_encode($get->getAllPatients($d));
+                    }else{
+                        echo errMsg(401);
+                    }
+                break;
+
                 // add
                 case 'addSession':
-                echo json_encode($post->addSession($d));
+                    echo json_encode($post->addSession($d));
                 break;
 
                 case 'addPatient':
-                echo json_encode($auth->addPatient($d));
+                    echo json_encode($auth->addPatient($d));
                 break;
+
+                case 'addAdmin':
+                    echo json_encode($auth->addAdmin($d));
+                break;
+
+                case 'addDoctor':
+                    echo json_encode($auth->addDoctor($d));
+                break;
+
+            
                 // change password
                 // update 
                 // delete

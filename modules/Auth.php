@@ -111,7 +111,7 @@ class Auth
 			return false;
 	}
 		
-	public function check_token_log($id, $token){
+	public function check_token_log($id,$token){
 			$sql = "SELECT * FROM token_tbl WHERE userid_fld = $id";
 			$res = $this->gm->executeQuery($sql);
 
@@ -145,7 +145,7 @@ class Auth
 		$remarks = "failed";
 		$message = "Logout failed";
 
-		$res = $this->gm->delete('token_tbl', "userid_fld =  $d->id");
+		$res = $this->gm->delete('token_tbl', "userid_fld = $d->id");
 		
 			if ($res['code'] == 200) {
 				$code = 200;
@@ -160,38 +160,56 @@ class Auth
 		$code = 0;
 		$remarks = "failed";
 		$message = "Login failed. Check you account credential.";
-
 		$sql = "SELECT * FROM webuser WHERE email = '$data->email'";
 		$res = $this->gm->executeQuery($sql);
-
 		if ($res['code'] == 200) {
 			$usertype = $res['data'][0]['usertype'];
-			if ($usertype=='d') {
-				$faculty = "SELECT * FROM doctor WHERE docemail = '$data->email'";
-				$fdt = $this->gm->executeQuery($faculty);
-				$password =$fdt['data'][0]['docpassword'];
-				
-				if ($password == $data->password) {
-					$payload = $res['data'][0]['usertype'];
-					$code = 200;					
-					$remarks = "success";
-					$message = "Login success.";
-				}
-			}
 			if ($usertype=='a') {
-				$admin = "SELECT * FROM admin WHERE aemail = '$data->email'";
-				$adt = $this->gm->executeQuery($admin);
-				$password =$adt['data'][0]['apassword'];
-				if ($password == $data->password) {
-					$payload = $res['data'][0]['usertype'];
-					$code = 200;					
-					$remarks = "success";
-					$message = "Login success.";
+				$asql = "SELECT * FROM admin WHERE aemail = ? LIMIT 1";
+				$stmt = $this->pdo->prepare($asql);
+				$stmt->execute([$data->email]);
+				$user = $stmt->fetch();
+				if ($this->password_check($data->password, $user['apassword'])) {
+					$id = $user['aid'];
+					$email = $user['aemail'];
+					$role = 'a';
+					$token = $this->generate_token($id, $email);	
+						if (!$this->check_token_log($id, $token)) {
+							$payload = ["id" => $id, "role" => $role, "token" => $token];
+							$remarks = "success"; 
+							$message = "Login success.";
+						} else {
+							$remarks = "failed";
+							$message = "Authorization failed. You already logged in with another device.";
+						}
 				}
 			}
+			
+			if ($usertype=='d') {
+				$dsql = "SELECT * FROM doctor WHERE docemail = ? LIMIT 1";
+				$stmt = $this->pdo->prepare($dsql);
+				$stmt->execute([$data->email]);
+				$user = $stmt->fetch();
+				if ($this->password_check($data->password, $user['docpassword'])) {
+					$id = $user['docid'];
+					$email = $user['docemail'];
+					$role = 'd';
+					$token = $this->generate_token($id, $email);	
+						if (!$this->check_token_log($id, $token)) {
+							
+							$payload = ["id" => $id, "role" => $role, "token" => $token];
+							$remarks = "success"; 
+							$message = "Login success.";
+						} else {
+							$remarks = "failed";
+							$message = "Authorization failed. You already logged in with another device.";
+						}
+				}
+			}
+
 			if ($usertype=='p') {
-				$sql = "SELECT * FROM patient WHERE pemail = ? LIMIT 1";
-				$stmt = $this->pdo->prepare($sql);
+				$psql = "SELECT * FROM patient WHERE pemail = ? LIMIT 1";
+				$stmt = $this->pdo->prepare($psql);
 				$stmt->execute([$data->email]);
 				$user = $stmt->fetch();
 				if ($this->password_check($data->password, $user['ppassword'])) {
@@ -201,7 +219,6 @@ class Auth
 					$token = $this->generate_token($id, $email);	
 						if (!$this->check_token_log($id, $token)) {
 							$payload = ["id" => $id, "role" => $role, "token" => $token];
-							// $payload = $data;
 							$remarks = "success"; 
 							$message = "Login success.";
 						} else {
@@ -210,9 +227,9 @@ class Auth
 						}
 				}
 			}
-		}
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
+}
 
   
 // Add
@@ -226,6 +243,7 @@ class Auth
 		$res = $this->gm->insert('patient', $data);
 		$res = $this->gm->insert('webuser', array('email' => $dt->pemail, 'usertype' => $usertype));
 
+		
 		if ($res['code'] == 200) {
 			$code = 200;
 			$remarks = "success";
@@ -236,17 +254,47 @@ class Auth
 
 	public function addAdmin($dt){
 		$code = 0;
-		$payload = null;
+		$payload = [];
 		$remarks = "failed";
 		$message = "Unable to add data";
-		$data = array('adminuser_fld' => $dt->adminuser_fld, 'adminpass_fld' => $this->encrypt_password($dt->adminpass_fld), 'adminfname_fld' => $dt->adminfname_fld, 'adminmname_fld' => $dt->adminmname_fld, 'adminlname_fld' => $dt->adminlname_fld, "adminext_fld" => $dt->adminext_fld, "admindept_fld" => $dt->admindept_fld, "adminpos_fld" => $dt->adminpos_fld);
+		$data = array('aemail' => $dt->aemail, 'apassword' => $this->encrypt_password($dt->apassword));
+		$usertype = 'a';
+		$res = $this->gm->insert('admin', $data);
+		$res = $this->gm->insert('webuser', array('email' => $dt->aemail, 'usertype' => $usertype));
 
-		$res = $this->gm->insert('admin_tbl', $data);
 
 		if ($res['code'] == 200) {
 			$code = 200;
 			$remarks = "success";
 			$message = "Admin added to database";
+		}
+		return $this->gm->response($payload, $remarks, $message, $code);
+	}
+
+	public function addDoctor($dt){
+		$code = 0;
+		$payload = [];
+		$remarks = "failed";
+		$message = "Unable to add data";
+		$docid = $this->generateShortUUID();
+		$docspec = $dt->specialties;
+		$sql = "SELECT * FROM specialties WHERE id = ? LIMIT 1";
+		$stmt = $this->pdo->prepare($sql);
+		$stmt->execute([$docspec]);
+		$sname = $stmt->fetch();
+		$data = array('docid' => $docid,'docemail' => $dt->docemail,'docname'=> $dt->docname, 'docpassword' => $this->encrypt_password($dt->docpassword),'docnic' => $dt->docnic, "doctel" => $dt->doctel , "specialties" => $sname['sname']);
+		$usertype = 'd';
+		$res = $this->gm->insert('doctor', $data);
+		$res = $this->gm->insert('webuser', array('email' => $dt->docemail, 'usertype' => $usertype));
+
+		
+
+
+		if ($res['code'] == 200) {
+			$payload = ["Specialties" => $sname];
+			$code = 200;
+			$remarks = "success";
+			$message = "Faculty added to database";
 		}
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
@@ -277,5 +325,14 @@ class Auth
 
 		return $this->gm->response($filename_path, 'success', 'Image uploaded successfully', 200);
 	}
+
+	private function generateShortUUID(){
+	$sql = "SELECT UUID_SHORT() AS uuid";	
+	$stmt = $this->pdo->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    return $result['uuid'];
+}
 
 }
