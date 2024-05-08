@@ -228,10 +228,8 @@ class Auth
 				}
 			}
 		return $this->gm->response($payload, $remarks, $message, $code);
+		}
 	}
-}
-
-  
 // Add
 	public function addPatient($dt){
 		$code = 0;
@@ -298,7 +296,6 @@ class Auth
 		}
 		return $this->gm->response($payload, $remarks, $message, $code);
 	}
-
 //others
 	public function delete_img($d){
 		$filename_path = "request/img/" . $d->id . "/2x2.jpg";
@@ -327,12 +324,12 @@ class Auth
 	}
 
 	private function generateShortUUID(){
-	$sql = "SELECT UUID_SHORT() AS uuid";	
-	$stmt = $this->pdo->prepare($sql);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+		$sql = "SELECT UUID_SHORT() AS uuid";	
+		$stmt = $this->pdo->prepare($sql);
+    	$stmt->execute();
+    	$result = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    return $result['uuid'];
-}
+    	return $result['uuid'];
+	}
 
 }

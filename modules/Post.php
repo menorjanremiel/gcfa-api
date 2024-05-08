@@ -185,10 +185,8 @@
             return $this->gm->response($payload, $remarks, $message, $code);
         }
 
-
-        
-	public function addSession($dt)
-	{
+	    public function addSession($dt)
+	    {
 		$code = 0;
 		$payload = [];
 		$remarks = "failed";
@@ -202,5 +200,5 @@
 			$message = "Session added to database";
 		}
 		return $this->gm->response($payload, $remarks, $message, $code);
-	}
+	    }
     }

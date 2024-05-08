@@ -55,6 +55,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 case 'getSpecialties':
                     echo json_encode($get->getSpecialties($d));
                 break;
+
                 case 'getAllPatients':
                     if ($auth->checkValidSignature($d->id, $d->token)) {
                         echo json_encode($get->getAllPatients($d));
@@ -78,6 +79,10 @@ switch ($_SERVER['REQUEST_METHOD']) {
 
                 case 'addDoctor':
                     echo json_encode($auth->addDoctor($d));
+                break;
+
+                 case 'updateDoctor':
+                    echo json_encode($post->updateDoctor($d));
                 break;
 
             

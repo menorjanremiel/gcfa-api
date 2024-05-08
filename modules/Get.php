@@ -91,7 +91,7 @@ class Get
 	}
 
 	public function getAllPatients($dt){
-		$payload = [];
+		$payload = [null];
 		$code = 0;
 	 	$remarks = "failed";
 	 	$message = "Unable to retrieve data";
