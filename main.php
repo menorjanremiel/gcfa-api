@@ -36,9 +36,17 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 break;
 
                 // get
-                case 'patient':
+                case 'getPatient':
                     if ($auth->checkValidSignature($d->id, $d->token)) {
-                        echo json_encode($get->getPatient($d));
+                        echo json_encode($get->getPatient($d->payload));
+                    }else{
+                        echo errMsg(401);
+                    }
+                break;
+
+                case 'getDoctor':
+                    if ($auth->checkValidSignature($d->id, $d->token)) {
+                        echo json_encode($get->getDoctor($d));
                     }else{
                         echo errMsg(401);
                     }
@@ -59,6 +67,14 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 case 'getAllPatients':
                     if ($auth->checkValidSignature($d->id, $d->token)) {
                         echo json_encode($get->getAllPatients($d));
+                    }else{
+                        echo errMsg(401);
+                    }
+                break;
+
+                   case 'getSession':
+                    if ($auth->checkValidSignature($d->id, $d->token)) {
+                        echo json_encode($get->getSession($d));
                     }else{
                         echo errMsg(401);
                     }
@@ -88,7 +104,10 @@ switch ($_SERVER['REQUEST_METHOD']) {
             
                 // change password
                 // update 
-                // delete
+                // deletedeleteAdmin
+                case 'deleteDoctor':
+                    echo json_encode($post->deleteDoctor($d));
+                break;
         }
         break;
 

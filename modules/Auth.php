@@ -284,10 +284,6 @@ class Auth
 		$usertype = 'd';
 		$res = $this->gm->insert('doctor', $data);
 		$res = $this->gm->insert('webuser', array('email' => $dt->docemail, 'usertype' => $usertype));
-
-		
-
-
 		if ($res['code'] == 200) {
 			$payload = ["Specialties" => $sname];
 			$code = 200;
